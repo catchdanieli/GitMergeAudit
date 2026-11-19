@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git Branch Comparison</title>
+<style>
+:root{font-family:system-ui,Segoe UI,sans-serif;color:#e8edf6;background:#101827}body{margin:0}main{max-width:1600px;margin:auto;padding:32px}h1{margin-bottom:6px}p{color:#a7b5c8}section{background:#19263a;border:1px solid #34435b;border-radius:12px;padding:20px;margin:18px 0}label{display:block;margin:10px 0;color:#c9d5e5}input,select{background:#101827;color:white;border:1px solid #52637c;border-radius:6px;padding:10px;width:100%;box-sizing:border-box}button{background:#5d91ff;color:#081223;border:0;padding:11px 18px;border-radius:7px;font-weight:700;cursor:pointer}button:disabled{opacity:.5}.controls{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:end}#error{color:#ff9292}small{color:#9aaec8}.workspace{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:18px;align-items:start}.file-tray{position:sticky;top:16px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;min-height:320px}.tray-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}.tray-heading h2{font-size:18px;margin:0}.file-count{color:#9aaec8;font-size:13px}.filter-options{display:flex;gap:8px;margin:12px 0}.filter-options button{background:#263750;color:#c9d5e5;padding:8px 12px}.filter-options button[aria-pressed=true]{background:#5d91ff;color:#081223}.file-search{margin-bottom:10px}.file-list{overflow-y:auto;min-height:0}.file-item{display:flex;width:100%;text-align:left;align-items:flex-start;gap:8px;background:transparent;color:#dce6f4;border:0;border-bottom:1px solid #34435b;border-radius:0;padding:10px 8px;font-weight:400}.file-item:hover,.file-item[aria-pressed=true]{background:#25364f}.file-item.overlap{color:#ffc66d;font-weight:700}.file-path{overflow-wrap:anywhere;flex:1}.both-badge{font-size:11px;color:#ffc66d;white-space:nowrap}#diffPanel{min-width:0}.diff-placeholder{color:#9aaec8;text-align:center;padding:80px 20px}.diffs{display:grid;grid-template-columns:1fr 1fr;gap:14px}.diffs h3{overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;max-height:650px;background:#0b1220;padding:14px;border-radius:8px;font-size:12px;color:#d4deed}.diff-add{color:#8ee6a5}.diff-delete{color:#ff9292}.diff-hunk{color:#8db7ff}@media(max-width:850px){main{padding:16px}.controls,.diffs{grid-template-columns:1fr}.workspace{grid-template-columns:1fr}.file-tray{position:static;max-height:42vh;min-height:220px}}
+.line-number-header{display:grid;grid-template-columns:4ch 4ch minmax(0,1fr);gap:8px;padding:0 10px 5px;color:#8091a9;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}.line-number-header span:nth-child(3){padding-left:4px}.diff-view{max-width:100%;max-height:650px;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;padding:12px 10px;background:#0b1220;border-radius:8px;color:#d4deed;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:normal;overflow-wrap:anywhere;overscroll-behavior:contain}.diff-line{display:grid;grid-template-columns:4ch 4ch minmax(0,1fr);gap:8px;min-height:1.5em}.line-number{color:#718096;text-align:right;user-select:none}.diff-code{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.diff-navigation{display:flex;justify-content:flex-end;gap:12px;margin:16px 0 22px}.diff-navigation button{background:#263750;color:#dce6f4;padding:10px 18px}.diff-navigation button:disabled{cursor:default}
+.workspace{--tray-width:320px;grid-template-columns:minmax(220px,var(--tray-width)) 8px minmax(0,1fr)}
+.tray-resizer{position:relative;align-self:stretch;min-height:320px;cursor:col-resize;touch-action:none;outline:none}
+.tray-resizer::after{position:absolute;content:"";left:3px;top:0;bottom:0;width:2px;border-radius:2px;background:#34435b;transition:background .15s,width .15s,left .15s}
+.tray-resizer:hover::after,.tray-resizer:focus-visible::after,.workspace.resizing .tray-resizer::after{left:2px;width:4px;background:#5d91ff}
+.workspace.resizing{user-select:none;cursor:col-resize}
+@media(max-width:850px){.workspace{grid-template-columns:1fr}.tray-resizer{display:none}}
+.repository-row{display:grid;grid-template-columns:minmax(0,460px) auto auto;gap:10px;align-items:end;justify-content:start;max-width:100%}
+.repository-row label{min-width:0}
+.repository-row button{height:40px;box-sizing:border-box;margin-bottom:10px;white-space:nowrap}
+.repository-row .folder-picker{background:#263750;color:#dce6f4;padding:8px 11px;font-size:13px}
+.branch-search{min-width:0}
+.branch-controls{display:grid;grid-template-columns:minmax(180px,320px) auto minmax(180px,320px) auto;gap:14px;align-items:end;justify-content:start}
+.branch-controls label{margin:10px 0}
+.branch-controls .compare-label{padding-bottom:10px;white-space:nowrap}
+.branch-controls button{margin-bottom:10px;white-space:nowrap}
+@media(max-width:560px){.repository-row{grid-template-columns:minmax(0,1fr) auto}.repository-row label{grid-column:1/-1}.repository-row button{justify-self:start;margin:0 0 10px}}
+@media(max-width:850px){.branch-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.branch-controls .compare-label{display:none}.branch-controls button{grid-column:2;justify-self:end}}
+.comparison-metadata{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;color:#c9d5e5}
+.commit-reference{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.commit-reference code{color:#dce6f4}
+.copy-sha{padding:5px 8px;background:#263750;color:#dce6f4;font-size:12px}
+.copy-status{min-height:1.3em;color:#9aaec8}
+.file-details{display:flex;flex-wrap:wrap;gap:4px 8px;width:100%;font-size:11px;font-weight:400;color:#9aaec8}
+.status-pill{white-space:nowrap}
+.status-added{color:#8ee6a5}.status-deleted{color:#ff9292}.status-modified{color:#ffc66d}.status-type-changed,.status-unmerged{color:#c6a5ff}
+.file-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;align-items:start}
+.file-path{grid-column:1;min-width:0;flex:none;overflow-wrap:anywhere}
+.file-details{grid-column:1/-1;width:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>⎇ Git Branch Comparison</h1>
+<p>Compare branch changes from their common ancestor and review overlapping files.</p>
+<section>
+  <div class="repository-row">
+    <label>Local repository absolute path<input id="repo" required placeholder="/Users/me/projects/my-repo"></label>
+    <button id="pickFolder" class="folder-picker" type="button" aria-label="Browse for repository folder">Browse…</button>
+    <button id="loadBranches" type="button">Load branches</button>
+  </div>
+  <form id="auditForm">
+    <div class="branch-controls">
+      <label>First branch<input id="firstBranch" class="branch-search" type="search" list="branchOptions" placeholder="Search or select a branch" autocomplete="off" required disabled></label>
+      <label class="compare-label">Compare with</label>
+      <label>Second branch<input id="secondBranch" class="branch-search" type="search" list="branchOptions" placeholder="Search or select a branch" autocomplete="off" required disabled></label>
+      <button id="analyze" disabled>Compare branches</button>
+    </div>
+    <datalist id="branchOptions"></datalist>
+  </form>
+  <p id="error" role="alert"></p>
+</section>
+<section id="results" hidden>
+  <div id="metadata" class="comparison-metadata"></div>
+  <p id="copyStatus" class="copy-status" role="status"></p>
+  <p id="summary"></p>
+  <div class="workspace">
+    <aside class="file-tray" aria-label="Changed files">
+      <div class="tray-heading"><h2>Files</h2><span id="fileCount" class="file-count"></span></div>
+      <div class="filter-options" role="group" aria-label="File list filter">
+        <button id="showAll" type="button" aria-pressed="true">All files</button>
+        <button id="showCommon" type="button" aria-pressed="false">Common files</button>
+      </div>
+      <input id="filter" class="file-search" placeholder="Filter file paths" aria-label="Filter file paths">
+      <div id="files" class="file-list"></div>
+    </aside>
+    <div id="trayResizer" class="tray-resizer" role="separator" aria-label="Resize file list" aria-orientation="vertical" aria-valuemin="220" aria-valuenow="320" aria-valuetext="File list width: 320 pixels" tabindex="0"></div>
+    <section id="diffPanel" aria-live="polite">
+      <div id="diffPlaceholder" class="diff-placeholder">Select a file to compare its branch changes.</div>
+      <div id="diffContent" hidden>
+        <div class="diff-navigation"><button id="previousFile" type="button">← Previous file</button><button id="nextFile" type="button">Next file →</button></div>
+        <h2 id="selected"></h2>
+        <div class="diffs">
+          <div><h3 id="firstTitle"></h3><div class="line-number-header" aria-hidden="true"><span>OLD</span><span>NEW</span><span>DIFF</span></div><div id="firstDiff" class="diff-view" role="region" aria-label="First branch diff" tabindex="0"></div></div>
+          <div><h3 id="secondTitle"></h3><div class="line-number-header" aria-hidden="true"><span>OLD</span><span>NEW</span><span>DIFF</span></div><div id="secondDiff" class="diff-view" role="region" aria-label="Second branch diff" tabindex="0"></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+<small>Diffs show changes on each branch relative to the common ancestor. Overlap is a review aid, not proof of a conflict.</small>
+</main>
+<script>
+let report=null,selected='',fileMode='all',diffRequestId=0,availableBranches=[];
+const $=id=>document.getElementById(id);
+const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function post(url,payload){
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Request failed');
+  return data;
+}
+function branchRequest(){return{repository:$('repo').value,firstBranch:$('firstBranch').value.trim(),secondBranch:$('secondBranch').value.trim()}}
+function clearRepositorySelection(){
+  availableBranches=[];
+  $('branchOptions').replaceChildren();
+  $('firstBranch').value='';$('secondBranch').value='';
+  $('firstBranch').disabled=true;$('secondBranch').disabled=true;$('analyze').disabled=true;
+  report=null;$('results').hidden=true;
+}
+$('repo').addEventListener('input',clearRepositorySelection);
+$('pickFolder').onclick=async()=>{
+  $('error').textContent='';
+  $('pickFolder').disabled=true;
+  try{
+    const data=await post('/api/folder',{});
+    if(data.path){
+      $('repo').value=data.path;
+      clearRepositorySelection();
+      $('error').textContent='';
+    }
+  }catch(error){$('error').textContent=error.message}
+  finally{$('pickFolder').disabled=false}
+};
+$('loadBranches').onclick=async()=>{
+  $('error').textContent='';
+  $('loadBranches').disabled=true;
+  $('firstBranch').disabled=true;$('secondBranch').disabled=true;$('analyze').disabled=true;
+  try{
+    const data=await post('/api/branches',{repository:$('repo').value});
+    const previousFirst=$('firstBranch').value,previousSecond=$('secondBranch').value;
+    availableBranches=data.branches;
+    $('branchOptions').innerHTML=data.branches.map(branch=>`<option value="${escapeHtml(branch)}"></option>`).join('');
+    $('firstBranch').value=data.branches.includes(previousFirst)?previousFirst:'';
+    $('secondBranch').value=data.branches.includes(previousSecond)?previousSecond:'';
+    $('firstBranch').disabled=false;$('secondBranch').disabled=false;
+    updateAnalyzeButton();
+    if(data.branches.length<2)$('error').textContent='At least two branches are required.';
+    report=null;$('results').hidden=true;
+  }catch(error){$('error').textContent=error.message}
+  finally{$('loadBranches').disabled=false}
+};
+$('firstBranch').addEventListener('input',updateAnalyzeButton);
+$('secondBranch').addEventListener('input',updateAnalyzeButton);
+function updateAnalyzeButton(){
+  const first=branchRequest().firstBranch,second=branchRequest().secondBranch;
+  $('analyze').disabled=availableBranches.length<2||!availableBranches.includes(first)||!availableBranches.includes(second)||first===second;
+}
+$('auditForm').onsubmit=async event=>{
+  event.preventDefault();$('error').textContent='';$('analyze').disabled=true;
+  try{
+    report=await post('/api/audit',branchRequest());
+    selected='';$('results').hidden=false;$('diffPlaceholder').hidden=false;$('diffContent').hidden=true;
+    resizeTray(parseInt(getComputedStyle(workspace).getPropertyValue('--tray-width'),10)||320);
+    renderMetadata();
+    $('summary').textContent=`${report.summary.total} changed files | ${report.summary.overlap} changed on both branches`;
+    render();
+  }catch(error){$('error').textContent=error.message}
+  finally{$('analyze').disabled=false}
+};
+function render(){
+  if(!report)return;
+  const visibleFiles=getVisibleFiles();
+  $('fileCount').textContent=`${visibleFiles.length} / ${report.files.length}`;
+  $('files').innerHTML=visibleFiles.map(file=>`<button type="button" data-path="${escapeHtml(file.path)}" aria-pressed="${file.path===selected}" class="file-item${file.overlap?' overlap':''}"><span class="file-path">${escapeHtml(file.path)}</span>${file.overlap?'<span class="both-badge">BOTH</span>':''}<span class="file-details"><span class="status-pill ${statusClass(file.firstStatus)}">First: ${escapeHtml(file.firstStatus||'Unchanged')}</span><span class="status-pill ${statusClass(file.secondStatus)}">Second: ${escapeHtml(file.secondStatus||'Unchanged')}</span></span></button>`).join('')||'<p class="file-count">No files match this filter.</p>';
+  document.querySelectorAll('#files .file-item').forEach(button=>button.onclick=()=>selectFile(button.dataset.path));
+  const selectedIndex=visibleFiles.findIndex(file=>file.path===selected);
+  $('previousFile').disabled=selectedIndex<=0;
+  $('nextFile').disabled=selectedIndex<0||selectedIndex>=visibleFiles.length-1;
+}
+function getVisibleFiles(){
+  const query=$('filter').value.toLowerCase();
+  return report.files.filter(file=>(fileMode==='all'||file.overlap)&&file.path.toLowerCase().includes(query));
+}
+function selectFile(path){
+  selected=path;
+  $('selected').textContent=selected;
+  $('diffPlaceholder').hidden=true;
+  $('diffContent').hidden=false;
+  render();
+  loadDiff();
+}
+function statusClass(status){
+  return status?`status-${status.toLowerCase().replaceAll(' ','-')}`:'';
+}
+function renderMetadata(){
+  const container=$('metadata');
+  container.replaceChildren();
+  const references=[
+    [report.firstBranch,report.firstTip],
+    [report.secondBranch,report.secondTip],
+    ['Common ancestor',report.ancestor]
+  ];
+  for(const [label,sha] of references){
+    const item=document.createElement('span');
+    item.className='commit-reference';
+    const name=document.createElement('span');
+    name.textContent=`${label}:`;
+    const value=document.createElement('code');
+    value.textContent=sha.slice(0,10);
+    value.title=sha;
+    const copy=document.createElement('button');
+    copy.type='button';copy.className='copy-sha';copy.dataset.sha=sha;
+    copy.setAttribute('aria-label',`Copy ${label} commit SHA`);
+    copy.textContent='Copy SHA';
+    item.append(name,value,copy);
+    container.append(item);
+  }
+}
+$('metadata').addEventListener('click',async event=>{
+  const button=event.target.closest('button[data-sha]');
+  if(!button)return;
+  try{
+    await navigator.clipboard.writeText(button.dataset.sha);
+    $('copyStatus').textContent=`Copied ${button.dataset.sha}`;
+  }catch(error){
+    $('copyStatus').textContent=`Could not copy commit SHA: ${error.message}`;
+  }
+});
+$('filter').oninput=render;
+$('showAll').onclick=()=>{fileMode='all';$('showAll').setAttribute('aria-pressed','true');$('showCommon').setAttribute('aria-pressed','false');render()};
+$('showCommon').onclick=()=>{fileMode='common';$('showAll').setAttribute('aria-pressed','false');$('showCommon').setAttribute('aria-pressed','true');if(!report?.files.some(file=>file.path===selected&&file.overlap)){selected='';$('diffPlaceholder').hidden=false;$('diffContent').hidden=true}render()};
+$('previousFile').onclick=()=>{const files=getVisibleFiles(),index=files.findIndex(file=>file.path===selected);if(index>0)selectFile(files[index-1].path)};
+$('nextFile').onclick=()=>{const files=getVisibleFiles(),index=files.findIndex(file=>file.path===selected);if(index>=0&&index<files.length-1)selectFile(files[index+1].path)};
+const workspace=document.querySelector('.workspace'),trayResizer=$('trayResizer');
+function resizeTray(width){
+  const maxWidth=Math.max(220,Math.min(600,workspace.clientWidth-368));
+  const trayWidth=Math.round(Math.max(220,Math.min(maxWidth,width)));
+  workspace.style.setProperty('--tray-width',`${trayWidth}px`);
+  trayResizer.setAttribute('aria-valuemax',String(maxWidth));
+  trayResizer.setAttribute('aria-valuenow',String(trayWidth));
+  trayResizer.setAttribute('aria-valuetext',`File list width: ${trayWidth} pixels`);
+}
+window.addEventListener('resize',()=>{if(!$('results').hidden)resizeTray(parseInt(trayResizer.getAttribute('aria-valuenow'),10)||320)});
+trayResizer.addEventListener('pointerdown',event=>{
+  if(event.pointerType==='mouse'&&event.button!==0)return;
+  trayResizer.setPointerCapture(event.pointerId);
+  workspace.classList.add('resizing');
+  resizeTray(event.clientX-workspace.getBoundingClientRect().left);
+});
+trayResizer.addEventListener('pointermove',event=>{
+  if(trayResizer.hasPointerCapture(event.pointerId))resizeTray(event.clientX-workspace.getBoundingClientRect().left);
+});
+function stopTrayResize(event){
+  if(trayResizer.hasPointerCapture(event.pointerId))trayResizer.releasePointerCapture(event.pointerId);
+  workspace.classList.remove('resizing');
+}
+trayResizer.addEventListener('pointerup',stopTrayResize);
+trayResizer.addEventListener('pointercancel',stopTrayResize);
+trayResizer.addEventListener('keydown',event=>{
+  const current=parseInt(trayResizer.getAttribute('aria-valuenow'),10);
+  if(event.key==='ArrowLeft'||event.key==='ArrowRight'){
+    event.preventDefault();
+    resizeTray(current+(event.key==='ArrowRight'?20:-20));
+  }else if(event.key==='Home'){
+    event.preventDefault();resizeTray(220);
+  }else if(event.key==='End'){
+    event.preventDefault();resizeTray(workspace.clientWidth-368);
+  }
+});
+document.addEventListener('keydown',event=>{
+  if(event.altKey&&event.key==='ArrowUp'&&!$('previousFile').disabled){event.preventDefault();$('previousFile').click()}
+  if(event.altKey&&event.key==='ArrowDown'&&!$('nextFile').disabled){event.preventDefault();$('nextFile').click()}
+});
+function diffStats(diff){
+  const lines=diff.split('\n');
+  return{
+    added:lines.filter(line=>line.startsWith('+')&&!line.startsWith('+++')).length,
+    deleted:lines.filter(line=>line.startsWith('-')&&!line.startsWith('---')).length
+  };
+}
+function formatDiff(diff){
+  if(!diff)return '<div class="diff-line"><span></span><span></span><span class="diff-code">(No changes on this branch)</span></div>';
+  let oldLine=null,newLine=null;
+  return diff.split('\n').filter((line,index,lines)=>index<lines.length-1||line.length>0).map(line=>{
+    const hunk=line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if(hunk){oldLine=Number(hunk[1]);newLine=Number(hunk[2])}
+    let oldNumber='',newNumber='',css='';
+    if(oldLine!==null&&newLine!==null&&line.startsWith(' ')&&!line.startsWith('+++')){
+      oldNumber=oldLine++;newNumber=newLine++;
+    }else if(oldLine!==null&&line.startsWith('-')&&!line.startsWith('---')){
+      oldNumber=oldLine++;css='diff-delete';
+    }else if(newLine!==null&&line.startsWith('+')&&!line.startsWith('+++')){
+      newNumber=newLine++;css='diff-add';
+    }else if(line.startsWith('@@'))css='diff-hunk';
+    return `<div class="diff-line"><span class="line-number">${oldNumber}</span><span class="line-number">${newNumber}</span><span class="diff-code ${css}">${escapeHtml(line)}</span></div>`;
+  }).join('');
+}
+let syncingDiffScroll=false;
+function syncDiffScroll(source,target){
+  source.addEventListener('scroll',()=>{
+    if(syncingDiffScroll)return;
+    syncingDiffScroll=true;
+    const sourceRange=source.scrollHeight-source.clientHeight;
+    const targetRange=target.scrollHeight-target.clientHeight;
+    target.scrollTop=sourceRange>0?source.scrollTop/sourceRange*targetRange:0;
+    requestAnimationFrame(()=>{syncingDiffScroll=false});
+  });
+}
+syncDiffScroll($('firstDiff'),$('secondDiff'));
+syncDiffScroll($('secondDiff'),$('firstDiff'));
+async function loadDiff(){
+  if(!selected||!report)return;
+  const path=selected,requestId=++diffRequestId;
+  $('firstDiff').textContent='Loading...';$('secondDiff').textContent='Loading...';
+  $('firstDiff').scrollTop=0;$('secondDiff').scrollTop=0;
+  $('firstTitle').textContent=report.firstBranch;$('secondTitle').textContent=report.secondBranch;
+  try{
+    const data=await post('/api/diff',{...branchRequest(),path});
+    if(requestId!==diffRequestId)return;
+    $('firstDiff').innerHTML=formatDiff(data.firstDiff);
+    $('secondDiff').innerHTML=formatDiff(data.secondDiff);
+    const firstStats=diffStats(data.firstDiff),secondStats=diffStats(data.secondDiff);
+    $('firstTitle').textContent=`${report.firstBranch} (+${firstStats.added}, -${firstStats.deleted})`;
+    $('secondTitle').textContent=`${report.secondBranch} (+${secondStats.added}, -${secondStats.deleted})`;
+    $('firstDiff').scrollTop=0;$('secondDiff').scrollTop=0;
+  }catch(error){if(requestId===diffRequestId){$('firstDiff').textContent=error.message;$('secondDiff').textContent=error.message}}
+}
+</script>
+</body>
+</html>
